@@ -25,7 +25,6 @@ RUN apk update && apk add --no-cache \
     lld \
     llvm-libunwind-dev
 
-# Create abuild user
 RUN adduser -D builder \
  && addgroup builder abuild \
  && echo "PACKAGER=\"builder <builder@local>\"" >> /etc/abuild.conf \
@@ -34,55 +33,57 @@ RUN adduser -D builder \
 
 WORKDIR /home/builder
 
-# Download only the llvm-runtimes and gtest directory from aports for the specified Alpine version
 RUN wget -O- "https://gitlab.alpinelinux.org/alpine/aports/-/archive/${ALPINE_VERSION}-stable/aports-${ALPINE_VERSION}-stable.tar.gz?path=main/llvm-runtimes" \
-    | tar -xvzf - && \
-    wget -O- "https://gitlab.alpinelinux.org/alpine/aports/-/archive/${ALPINE_VERSION}-stable/aports-${ALPINE_VERSION}-stable.tar.gz?path=main/gtest" \
+    | tar -xvzf - \
+ && wget -O- "https://gitlab.alpinelinux.org/alpine/aports/-/archive/${ALPINE_VERSION}-stable/aports-${ALPINE_VERSION}-stable.tar.gz?path=main/gtest" \
     | tar -xvzf -
 
-# Permit 'builder' user to write everything
 RUN chown -R builder:abuild /home/builder
 
 USER builder
 
 WORKDIR /home/builder/aports-$ALPINE_VERSION-stable-main-llvm-runtimes/main/llvm-runtimes
-
-# Add -fPIC to CFLAGS and CXXFLAGS in APKBUILD
-RUN sed -i '/^options=/a CFLAGS="-fPIC"' APKBUILD && \
-    sed -i '/^options=/a CXXFLAGS="-fPIC"' APKBUILD
-
-# Build the packages
-RUN abuild checksum && abuild -r
+RUN sed -i '/^options=/a CFLAGS="-fPIC"' APKBUILD \
+ && sed -i '/^options=/a CXXFLAGS="-fPIC"' APKBUILD \
+ && abuild checksum \
+ && abuild -r
 
 WORKDIR /home/builder/aports-$ALPINE_VERSION-stable-main-gtest/main/gtest
-
-# Add -stdlib=libc++ to CXXFLAGS in APKBUILD
-RUN sed -i '/^builddir=/a CXXFLAGS="-stdlib=libc++"\nLDFLAGS="-fuse-ld=lld"\nCXX=clang++\nCC=clang' APKBUILD
-
-# Build the packages
-RUN abuild checksum && abuild -r
+RUN sed -i '/^builddir=/a CXXFLAGS="-stdlib=libc++"\nLDFLAGS="-fuse-ld=lld"\nCXX=clang++\nCC=clang' APKBUILD \
+ && abuild checksum \
+ && abuild -r
 
 RUN mv /home/builder/packages/main/$(apk info --print-arch) /home/builder/packages/main/packages
 
 ##########################
-# 2) Final stage: install our newly built packages and build our app
+# 2) Final stage: unprivileged user + venv
 ##########################
 FROM alpine:${ALPINE_VERSION}
 
 RUN apk update && apk add --no-cache \
     clang clang-extra-tools \
-    cmake make musl-dev \
+    cmake make ninja musl-dev \
     libc++-dev libc++-static \
     lld \
-    wget
+    wget \
+    python3 py3-pip
+
+ENV VIRTUAL_ENV=/root/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR /app
 
 COPY --from=build-llvm-runtimes /home/builder/packages/main/packages /tmp/packages
-
 RUN apk add --allow-untrusted /tmp/packages/*.apk
 
-COPY ./docker/build_static.sh /usr/local/bin/build.sh
+COPY docker/build_static.sh /usr/local/bin/build.sh
+COPY pyproject.toml python/ README.md LICENSE* ./
+
+RUN python3 -m venv "$VIRTUAL_ENV" \
+ && "$VIRTUAL_ENV/bin/pip" install --upgrade pip build \
+ && "$VIRTUAL_ENV/bin/pip" install --no-cache-dir pip-tools \
+ && pip-compile --all-build-deps --extra test -o /tmp/requirements.txt pyproject.toml \
+ && pip-sync /tmp/requirements.txt
 
 RUN chmod +x /usr/local/bin/build.sh
 

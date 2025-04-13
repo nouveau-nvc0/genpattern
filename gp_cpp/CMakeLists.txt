@@ -82,3 +82,9 @@ if (BUILD_TESTS)
     # Register the second test.
     add_test(NAME genpattern_test_lib COMMAND genpattern_test_lib)
 endif()
+
+install(TARGETS genpattern
+        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/genpattern
+        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/genpattern
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/genpattern
+)

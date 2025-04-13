@@ -3,12 +3,12 @@ import ctypes.util
 import os
 
 # Load shared libraries.
-SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
+_SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 if os.name == "nt":
-    lib = ctypes.CDLL(os.path.join(SCRIPT_PATH, "bin", "genpattern.dll"))
-    libc = ctypes.CDLL(ctypes.util.find_msvcrt())
+    lib = ctypes.CDLL(os.path.join(_SCRIPT_PATH, "genpattern.dll"))
+    libc = ctypes.CDLL("ucrtbase.dll")
 else:
-    lib = ctypes.CDLL(os.path.join(SCRIPT_PATH, "bin", "libgenpattern.so"))
+    lib = ctypes.CDLL(os.path.join(_SCRIPT_PATH, "libgenpattern.so"))
     libc = ctypes.CDLL(ctypes.util.find_library("c"))
 
 # Set libc function prototypes.
@@ -65,7 +65,6 @@ class C_GPSchedule(ctypes.Structure):
         ("params", C_ScheduleParams)
     ]
 
-# Updated function prototype for gp_genpattern (new exception API).
 lib.gp_genpattern.argtypes = [
     ctypes.POINTER(C_GPCollection),
     ctypes.c_size_t,  # n_collections

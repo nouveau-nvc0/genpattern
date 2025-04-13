@@ -4,7 +4,7 @@
 out/*
 build/*
 embuild/*
-python/__pycache__/*
-python/test.png
+**/__pycache__/
 .mypy_cache/*
 vcpkg_installed/*
+dist/*
