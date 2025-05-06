@@ -2,7 +2,7 @@
 NOTICE
 ----------------------------------------------------------------
 Package: genpattern
-Version: 0.0.2
+Version: 0.0.3
 Target: Linux x86-64 wheels (manylinux_2_17 / musllinux_1_2)
 
 The following third-party components are statically linked into the
